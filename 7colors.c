@@ -12,8 +12,8 @@
 #define ANSI_COLOR_YELLOW	"\x1b[0;43m"
 #define ANSI_COLOR_BLUE		"\x1b[0;44m"
 #define ANSI_COLOR_MAGENTA	"\x1b[0;45m"
-#define ANSI_COLOR_CYAN		"\x1b[0;46m"
-#define ANSI_COLOR_WHITE	"\x1b[0;46m"
+#define ANSI_COLOR_CYAN		"\x1b[30;46m"
+#define ANSI_COLOR_WHITE	"\x1b[30;47m"
 #define ANSI_COLOR_RESET	"\x1b[0;0m"
 
 
@@ -169,7 +169,26 @@ void print_board(void)
         printf("\n");
     }
     
-    printf("\n\n\n");
+    printf("\n\n");
+}
+
+
+
+float rate(char character)
+{
+	int count = 0;
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	int i;
+	for(i = 0; i < BB; i++)
+	{
+		if(board[i] == character)
+			count ++;
+	}
+	
+	float rate = (float)count/BB;
+	
+	return rate;
 }
 
 
@@ -182,9 +201,6 @@ void gamehvh()
 	int flag = 1;
 	while(flag)
 	{
-		printf("\n\n\n");
-		print_board();
-		
 		if(player == 0)
 		{
 			printf("Player 1 : ");
@@ -198,12 +214,53 @@ void gamehvh()
 			play(toupper(input_color), '^');
 		}
 		/* On remarquera qu'en mettant un espace devant %c,
-         * on évite de récupérer le caractère de fin de la saisie précédente,
-         * et donc d'outrepasser la saisie de l'un des deux joueurs
-         * http://stackoverflow.com/questions/32236684/c-scanf-issues
-         */
+		 * on évite de récupérer le caractère de fin de la saisie précédente,
+		 * et donc d'outrepasser la saisie de l'un des deux joueurs
+		 * http://stackoverflow.com/questions/32236684/c-scanf-issues
+		 */
+		
+		printf("\n");
+		print_board();
+		
+		float rate1 = rate('v');
+		float rate2 = rate('^');
+		printf("Player 1 : %f %% \t\tPlayer 2 : %f %% \n\n", 100*rate1, 100*rate2);
+		
+		if(rate1 >= 0.5f || rate2 >= 0.5f)
+		{
+			flag = 0;
+		}
 		
 		player = !player;
+	}
+}
+
+
+/** Game human vs dumb bot */
+void gamehvdb()
+{	
+	char input_color;
+	
+	int flag = 1;
+	while(flag)
+	{
+		printf("Player : ");
+		scanf(" %c", &input_color);
+		play(toupper(input_color), 'v');
+		
+		play('A' + rand()%7, '^');
+		
+		printf("\n");
+		print_board();
+		
+		float rate1 = rate('v');
+		float rate2 = rate('^');
+		printf("Player : %f %% \t\tAI : %f %% \n\n", 100*rate1, 100*rate2);
+		
+		if(rate1 >= 0.5f || rate2 >= 0.5f)
+		{
+			flag = 0;
+		}
 	}
 }
 
@@ -217,13 +274,11 @@ int main(void)
 	   "Current board state:\n");
 
     fill_rand();
+	
+	print_board();
     
-    print_board();
-    
-    //play(get_cell(0, BOARD_SIZE-2), 'v');
-    gamehvh();
-    
-    print_board();
+    //gamehvh();
+	gamehvdb();
 
     return 0; // Everything went well
 }
