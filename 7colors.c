@@ -6,6 +6,17 @@
 #include <ctype.h>
 
 
+// On définit des alias pour les couleurs dans le terminal
+#define ANSI_COLOR_RED		"\x1b[0;41m"
+#define ANSI_COLOR_GREEN	"\x1b[0;42m"
+#define ANSI_COLOR_YELLOW	"\x1b[0;43m"
+#define ANSI_COLOR_BLUE		"\x1b[0;44m"
+#define ANSI_COLOR_MAGENTA	"\x1b[0;45m"
+#define ANSI_COLOR_CYAN		"\x1b[0;46m"
+#define ANSI_COLOR_WHITE	"\x1b[0;46m"
+#define ANSI_COLOR_RESET	"\x1b[0;0m"
+
+
 
 /* We want a 30x30 board game by default */
 #define BOARD_SIZE 30
@@ -76,6 +87,10 @@ void play(char color, char player)
     int BB = BOARD_SIZE * BOARD_SIZE;
     int BBMO = BOARD_SIZE * (BOARD_SIZE-1);
     
+    
+    /* MÉTHODE NON RÉCURSIVE
+     */
+    
     int flag = 1;
 	while(flag)
 	{
@@ -101,6 +116,12 @@ void play(char color, char player)
             }            
 		}
 	}
+	
+	
+	/* MÉTHODE RÉCURSIVE
+     */
+    
+    
 }
 
 
@@ -116,8 +137,34 @@ void print_board(void)
     for (i = 0; i < BOARD_SIZE; i++)
     {
         for (j = 0; j < BOARD_SIZE; j++)
-        {
-            printf("%c", get_cell(j, i));
+        {			
+			switch(get_cell(j, i))
+			{
+				case 'A':
+					printf(ANSI_COLOR_RED "A" ANSI_COLOR_RESET);
+					break;
+				case 'B':
+					printf(ANSI_COLOR_GREEN "B" ANSI_COLOR_RESET);
+					break;
+				case 'C':
+					printf(ANSI_COLOR_YELLOW "C" ANSI_COLOR_RESET);
+					break;
+				case 'D':
+					printf(ANSI_COLOR_BLUE "D" ANSI_COLOR_RESET);
+					break;
+				case 'E':
+					printf(ANSI_COLOR_MAGENTA "E" ANSI_COLOR_RESET);
+					break;
+				case 'F':
+					printf(ANSI_COLOR_CYAN "F" ANSI_COLOR_RESET);
+					break;
+				case 'G':
+					printf(ANSI_COLOR_WHITE "G" ANSI_COLOR_RESET);
+					break;
+				default:
+					printf("%c", get_cell(j, i));
+					break;
+			};			
         }
         printf("\n");
     }
