@@ -3,6 +3,7 @@
 #include <stdio.h>     /* printf */
 #include <stdlib.h>
 #include <time.h>
+#include <ctype.h>
 
 
 
@@ -58,73 +59,46 @@ void fill_rand(void)
 /** Play */
 void play(char color, char player)
 {
-	int flag = 1;	
+	// On vérifie tout d'abord que le caractère entré est valide
+    if((color != 'A') &&
+        (color != 'B') &&
+        (color != 'C') &&
+        (color != 'D') &&
+        (color != 'E') &&
+        (color != 'F') &&
+        (color != 'G'))
+    {
+        printf("Invalid entry");
+        return;
+    }
+    
+    // Pour éviter d'avoir à les calculer à chaque fois ...
+    int BB = BOARD_SIZE * BOARD_SIZE;
+    int BBMO = BOARD_SIZE * (BOARD_SIZE-1);
+    
+    int flag = 1;
 	while(flag)
 	{
 		flag = 0;
 		
 		int i;
-		for(i = 0 ; i < BOARD_SIZE*BOARD_SIZE ; i++)
-		{
-			if(board[i] == color)
-			{
-				if(i == BOARD_SIZE
-				if(i % BOARD_SIZE  == 0)
-				{
-					if(board[i+1] == player\
-					|| board[i+BOARD_SIZE] == player\
-					|| board[i-BOARD_SIZE] == player)
-					{
-						board[i] = player;
-						flag = 1;
-					}
-				}
-				
-				else if(i % BOARD_SIZE  == BOARD_SIZE-1)
-				{
-					if(board[i-1] == player\
-					|| board[i+BOARD_SIZE] == player\
-					|| board[i-BOARD_SIZE] == player)
-					{
-						board[i] = player;
-						flag = 1;
-					}
-				}
-				
-				else if(i < BOARD_SIZE)
-				{
-					if(board[i+1] == player\
-					|| board[i-1] == player\
-					|| board[i+BOARD_SIZE] == player)
-					{
-						board[i] = player;
-						flag = 1;
-					}
-				}
-				
-				else if(i > BOARD_SIZE * (BOARD_SIZE - 1))
-				{
-					if(board[i+1] == player\
-					|| board[i-1] == player\
-					|| board[i-BOARD_SIZE] == player)
-					{
-						board[i] = player;
-						flag = 1;
-					}
-				}
-				
-				else
-				{
-					if(board[i+1] == player\
-					|| board[i-1] == player\
-					|| board[i+BOARD_SIZE] == player\
-					|| board[i-BOARD_SIZE] == player)
-					{
-						board[i] = player;
-						flag = 1;
-					}
-				}
-			}
+		for(i = 0 ; i < BB ; i++)
+		{            
+            /* Si le bloc n'est pas en haut du plateau, on contrôle le bloc directement au-dessus de lui
+             * '' gauche ''
+             * '' bas ''
+             * '' droite ''
+             * pas besoin d'imbriquer les if, la premère condition de chaque && le court-circuite, et évite tout segfault
+             */
+            if(board[i] == color &&
+                ( (i >= BOARD_SIZE && board[i-BOARD_SIZE] == player) ||
+                ((i % BOARD_SIZE) && board[i-1] == player) ||
+                ((i < BBMO) && board[i+BOARD_SIZE] == player) ||
+                ((i % BOARD_SIZE != BOARD_SIZE - 1) && board[i+1] == player) ) )
+            {
+                board[i] = player;
+                flag = 1;
+            }            
 		}
 	}
 }
@@ -156,27 +130,31 @@ void print_board(void)
 void gamehvh()
 {	
 	int player = 0;
+    char input_color;
 	
-	int flag = 1;	
+	int flag = 1;
 	while(flag)
 	{
-		char input_color;
-		
 		printf("\n\n\n");
 		print_board();
 		
 		if(player == 0)
 		{
-			printf("Player 1 :");
-			scanf("%c", &input_color);
-			play(input_color, 'v');
+			printf("Player 1 : ");
+			scanf(" %c", &input_color);
+			play(toupper(input_color), 'v');
 		}
 		else if(player == 1)
 		{
-			printf("Player 2 :");
-			scanf("%c", &input_color);
-			play(input_color, '^');
+			printf("Player 2 : ");
+			scanf(" %c", &input_color);
+			play(toupper(input_color), '^');
 		}
+		/* On remarquera qu'en mettant un espace devant %c,
+         * on évite de récupérer le caractère de fin de la saisie précédente,
+         * et donc d'outrepasser la saisie de l'un des deux joueurs
+         * http://stackoverflow.com/questions/32236684/c-scanf-issues
+         */
 		
 		player = !player;
 	}
