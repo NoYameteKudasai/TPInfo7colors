@@ -1,0 +1,274 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[francais]{babel}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{numprint}
+\usepackage[squaren,Gray,cdot]{SIunits}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{courier}
+\geometry{hmargin=3.5cm, vmargin=2.5cm}
+
+\lstset{language=C, numbers=left}
+
+\usepackage{color}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{ %
+	backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}; should come as last argument
+	basicstyle=\footnotesize,        % the size of the fonts that are used for the code
+	breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+	breaklines=true,                 % sets automatic line breaking
+	captionpos=b,                    % sets the caption-position to bottom
+	commentstyle=\color{mygreen},    % comment style
+	deletekeywords={...},            % if you want to delete keywords from the given language
+	escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+	extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+	frame=left,	                   % adds a frame around the code
+	keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+	keywordstyle=\color{blue},       % keyword style
+	language=C,                 % the language of the code
+	morekeywords={*,...},           % if you want to add more keywords to the set
+	numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+	numbersep=5pt,                   % how far the line-numbers are from the code
+	numberstyle=\tiny\color{mygray}, % the style that is used for the line-numbers
+	rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+	showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+	showstringspaces=false,          % underline spaces within strings only
+	showtabs=false,                  % show tabs within strings adding particular underscores
+	stepnumber=1,                    % the step between two line-numbers. If it's 1, each line will be numbered
+	stringstyle=\color{mymauve},     % string literal style
+	tabsize=4,	                   % sets default tabsize to 2 spaces
+	title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+
+
+
+\begin{document}
+	
+	
+	
+	
+	\section{Voir le monde en 7 couleurs}
+	
+	
+	\subsection{Remplissage aléatoire du monde}
+	
+	On crée la fonction fill\_rand dans laquelle on va remplir le board avec des couleurs aléatoires, ainsi que les territoires de départ de chacun des joueurs dans les coins.
+	
+	On rapelle que la fonction random génère une suite de nombres (des \texttt{int}) générés à partir d'une graine. Cette suite est unique pour chaque graine. Il est donc impropre de parler de génération de nombres aléatoires, mais plutot de génération \emph{pseudo-aléatoire}.
+	
+	À cet effet, on affecte à la graine la valeur du temps UNIX au moment de l'appel de la fonction (il y a peu de chances pour que la fonction \texttt{fill\_rand} soit appelée plusieurs fois dans la même seconde dans plusieurs processus de 7colors).
+	
+	On affecte ensuite à chaque élement de la liste \texttt{board} une valeur comprise entre \texttt{'A'} et \texttt{'G'}. Comme \texttt{rand} renvoie un \texttt{int} compris entre 0 et une constante \texttt{RAND\_MAX} supérieure à 32767, on fait un modulo 7 pour avoir seulement des entiers compris entre 0 et 6.
+	
+	On affecte ensuite les valeurs au coins en haut à droite et en bas à gauche aux deux joueurs.
+	
+	\begin{lstlisting}
+/** Fills the borad with random colors */
+void fill_rand(void)
+{
+	// Setting the rand seed to UNIX time
+	srand(time(NULL));
+	
+	int i;
+	for(i = 0 ; i < BOARD_SIZE*BOARD_SIZE ; i++)
+	{
+		// Setting a random value between 'A' and 'G'
+		board[i] = (rand() % 7) + 'A';
+	}
+	
+	// Setting the start cells for each player in the corners
+	set_cell(BOARD_SIZE-1, 0, '^');
+	set_cell(0, BOARD_SIZE-1, 'v');
+}
+	\end{lstlisting}
+	
+	
+	\subsection{Mise à jour du board après un coup}
+	\label{MAJ}
+	
+	Selon les règles, chaque joueur choisit à tour de rôle une couleur ; il prend le contrôle de toutes les cases adjacentes à son territoire qui sont de la couleur choisie. Si une case de la couleur choisie est adjacente à une case capturée, elle l'est aussi automatiquement.
+	
+	On va écrire une fonction \texttt{void play(char color, char player)}, qui prend pour paramètres le caractère correspondant à la couleur choisie par le joueur, et la caractère associé au joueur (dans notre cas \texttt{v} ou \texttt{\^}).
+	
+	La stratégie va être la suivante : on vérifie pour chaque case de la couleur choisie si ses voisines appartiennent au joueur. Si c'est le cas, cette case est capturée. On répète le processus, jusqu'à ce qu'aucun changement ne puisse être fait.
+	
+	Pour ce faire, une utilisera un flag. On boucle tant que le flag est \texttt{true}, puis on lui affecte la valeur \texttt{false} à chaque début d'itération. Si une modification est faite, on réaffecte la valeur \texttt{true}. Si aucune modification n'est faite, l'itération se terminera avec le flag \texttt{false}, et la boucle avec. En pseudo-code :
+	
+	\begin{lstlisting}
+void play(char color, char player)
+{
+	// Defining those not to compute them at each iteration ...
+	int BB = BOARD_SIZE * BOARD_SIZE;
+	int BBMO = BOARD_SIZE * (BOARD_SIZE-1);
+	
+	int flag = 1;
+	while(flag)
+	{
+		flag = 0;
+		
+		int i;
+		for(i = 0 ; i < BB ; i++)
+		{
+			if(board[i] == color)
+			{
+				board[i] = player;
+				flag = 1;
+			}
+		}
+	}
+}
+	\end{lstlisting}
+
+	
+	Il subsiste un problème : on risque de contrôler des cases qui n'existent pas si on est sur les bords du plateau. Pour ne pas faire cette erreur, on rajoute des conditions correspondantes. On rapelle que l'ordre importe dans l'opérateur \texttt{\&\&} : si le premier opérande est faux, la valeur du deuxième n'est pas vérifiée par le programme. On peux ainsi se permettre d'écrire \texttt{board} à un indice en-dehors des limites qu'on s'est fixées.
+	
+	\begin{lstlisting}
+/* If the block is not at the top of the board, checking if the upper block belongs to player
+* '' left ''
+* '' bottom ''
+* '' right ''
+* the order in the && blocks prevent any segfault
+*/
+if(board[i] == color &&
+( (i >= BOARD_SIZE && board[i-BOARD_SIZE] == player) ||
+((i % BOARD_SIZE) && board[i-1] == player) ||
+((i < BBMO) && board[i+BOARD_SIZE] == player) ||
+((i % BOARD_SIZE != BOARD_SIZE - 1) && board[i+1] == player) ) )
+{
+	board[i] = player;
+	flag = 1;
+}
+	\end{lstlisting}
+	
+	On peut vérifier que l'algorithme fonctionne simplement en faisant une partie joueur contre joueur et en vérifiant les cas limites. Pour cela, on a besoin de répondre aux questions 4 et 5.
+	
+	
+	
+	\section{À la conquête du monde}
+	
+	L'objectif est ici d'implémenter le mode de jeu humain contre humain. Chaque joueur jouera un coup à tour de rôle, jusqu'à ce que le territoire de l'un des joueurs atteigne ou dépasse les 50\% du board. On implémentera ceci dans une fonction \texttt{void gamehvh()} (pour game human v. human).
+	
+	
+	\subsection{Jeu infini (et au-delà)}
+	
+	On va en premier lieu récupérer un input : chaque joueur devra écrire le caractère correspondant à la couleur qu'il veut capturer. Pour cela nous allons utiliser la fonction \texttt{scanf}, récupérer le caractère entré dans un \texttt{char}, puis le passer en paramètre dans la fonction \texttt{play} définie en partie \ref{MAJ}.
+	
+	Pour pouvoir faire jouer les deux joueurs à tour de rôle, on introduit la variable \texttt{int player} qui prend la valeur 0 quand c'est au joueur 1 de jouer et la valeur 1 quand c'est au joueur 2 de jouer. Il suffit d'inverser sa valeur à la fin de chaque itération.
+	
+	On boucle tout cela à l'infini dans un premier temps.
+	
+	\begin{lstlisting}
+void gamehvh()
+{	
+	int player = 0;
+	char input_color;
+	
+	while(true)
+	{
+		if(!player) // Player 1
+		{
+			printf("Player 1 : ");
+			scanf("%c", &input_color);
+			play(input_color, 'v');
+		}
+		else // Player 2
+		{
+			printf("Player 2 : ");
+			scanf("%c", &input_color);
+			play(input_color, '^');
+		}
+		
+		printf("\n");
+		print_board();
+		
+		// ...
+		
+		player = !player;
+	}
+}
+	\end{lstlisting}
+	
+	Après test, on s'est rendus compte que cela ne fonctionne pas : seul le joueur 1 joue (la saisie du joueur 2 n'apparait jamais). En fait, la fonction \texttt{scanf} va être appelée autant de fois qu'il y a de caractères dans le terminal d'entrée, comme si ces caractères étaient disposés dans une pile. Or quand on écrit par exemple \texttt{A} dans le terminal d'entrée, ce que le programme comprend est : \texttt{A} puis \texttt{\\n}. Il suffit pour remédier à cela d'ajouter un espace devant \texttt{\%c}, pour faire comperndre au compilateur qu'on ne veut récupérer que le premier caractère qui n'est pas un espace ou un blanc.
+	
+	\begin{lstlisting}
+scanf(" %c", &input_color);
+	\end{lstlisting}
+	
+	De plus, pour éviter à avoir à écrire des majuscules à chaque fois, on peut le faire directement dans le programme :
+	
+	\begin{lstlisting}
+play(toupper(input_color), 'v');
+	\end{lstlisting}
+	
+	
+	\subsection{Toutes les bonnes choses ont une fin}
+	
+	Il s'agit maintenant de gérer la condition de fin de partie ; on va faire de la même manière que pour la mise à jour du terrain : avec un flag ! On joue tant que le flag est à la valeur \texttt{true}, et on lui affecte la valeur \texttt{false} dès qu'un joueur gagne.
+	
+	On en profite pour afficher la proportion de terrain conquis par chaque joueur.
+	
+	Remarque : on aurait pu garder la boucle infinie \texttt{while(true)} et utiliser le mot-clé \texttt{break} pour sortir de la boucle immédiatement \dots
+	
+	\begin{lstlisting}
+int flag = 1;
+while(flag)
+{
+	// input if's ...
+	
+	printf("\n");
+	print_board();
+	
+	float rate1 = rate('v');
+	float rate2 = rate('^');
+	printf("Player 1 : %f %% \t\tPlayer 2 : %f %% \n\n", 100*rate1, 100*rate2);
+	
+	// If a player gets more than half the board
+	if(rate1 >= 0.5f || rate2 >= 0.5f)
+	{
+		// The game finishes
+		flag = 0;
+	}
+	
+	player = !player;
+}
+	\end{lstlisting}
+	
+	La fonction \texttt{rate} donne la proportion de terrain conquis par une couleur ou un joueur donné. Elle parcourt tout simplement le board en entier, compte les occurences et calcule rapport avec le nombre total de blocs.
+	
+	\begin{lstlisting}
+float rate(char character)
+{
+	int count = 0;
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	int i;
+	for(i = 0; i < BB; i++)
+	{
+		if(board[i] == character)
+			count ++;
+	}
+	
+	return count/BB;
+}
+	\end{lstlisting}
+	
+	
+	
+	\section{La statégie (??!) de l'aléa}
+	
+	
+	\subsection{L'IA d'exception}
+	
+	
+	
+	
+	
+	
+	
+\end{document}

@@ -54,23 +54,26 @@ void set_cell(int x, int y, char color)
 /** Fills the borad with random colors */
 void fill_rand(void)
 {
+	// Setting the rand seed to UNIX time
 	srand(time(NULL));
 	
 	int i;
 	for(i = 0 ; i < BOARD_SIZE*BOARD_SIZE ; i++)
 	{
+		// Setting a random value between 'A' and 'G'
 		board[i] = (rand() % 7) + 'A';
 	}
 	
+	// Setting the start cells for each player in the corners
 	set_cell(BOARD_SIZE-1, 0, '^');
 	set_cell(0, BOARD_SIZE-1, 'v');
 }
 
 
 /** Play */
-void play(char color, char player)
+void play(char color, char player_c)
 {
-	// On vérifie tout d'abord que le caractère entré est valide
+	// Checking the entry
     if((color != 'A') &&
         (color != 'B') &&
         (color != 'C') &&
@@ -83,12 +86,12 @@ void play(char color, char player)
         return;
     }
     
-    // Pour éviter d'avoir à les calculer à chaque fois ...
+    // Defining those not to compute them at each iteration ...
     int BB = BOARD_SIZE * BOARD_SIZE;
     int BBMO = BOARD_SIZE * (BOARD_SIZE-1);
     
     
-    /* MÉTHODE NON RÉCURSIVE
+    /* NON RECURSIVE
      */
     
     int flag = 1;
@@ -98,22 +101,22 @@ void play(char color, char player)
 		
 		int i;
 		for(i = 0 ; i < BB ; i++)
-		{            
-            /* Si le bloc n'est pas en haut du plateau, on contrôle le bloc directement au-dessus de lui
-             * '' gauche ''
-             * '' bas ''
-             * '' droite ''
-             * pas besoin d'imbriquer les if, la premère condition de chaque && le court-circuite, et évite tout segfault
+		{
+			/* If the block is not at the top of the board, checking if the upper block belongs to player
+             * '' left ''
+             * '' bottom ''
+             * '' right ''
+			 * the order in the && blocks prevent any segfault
              */
             if(board[i] == color &&
-                ( (i >= BOARD_SIZE && board[i-BOARD_SIZE] == player) ||
-                ((i % BOARD_SIZE) && board[i-1] == player) ||
-                ((i < BBMO) && board[i+BOARD_SIZE] == player) ||
-                ((i % BOARD_SIZE != BOARD_SIZE - 1) && board[i+1] == player) ) )
+                ( (i >= BOARD_SIZE && board[i-BOARD_SIZE] == player_c) ||
+                ((i % BOARD_SIZE) && board[i-1] == player_c) ||
+                ((i < BBMO) && board[i+BOARD_SIZE] == player_c) ||
+                ((i % BOARD_SIZE != BOARD_SIZE - 1) && board[i+1] == player_c) ) )
             {
-                board[i] = player;
+                board[i] = player_c;
                 flag = 1;
-            }            
+            }
 		}
 	}
 	
@@ -186,9 +189,7 @@ float rate(char character)
 			count ++;
 	}
 	
-	float rate = (float)count/BB;
-	
-	return rate;
+	return count/BB;
 }
 
 
@@ -201,13 +202,13 @@ void gamehvh()
 	int flag = 1;
 	while(flag)
 	{
-		if(player == 0)
+		if(!player) // Player 1
 		{
 			printf("Player 1 : ");
 			scanf(" %c", &input_color);
 			play(toupper(input_color), 'v');
 		}
-		else if(player == 1)
+		else // Player 2
 		{
 			printf("Player 2 : ");
 			scanf(" %c", &input_color);
@@ -226,8 +227,10 @@ void gamehvh()
 		float rate2 = rate('^');
 		printf("Player 1 : %f %% \t\tPlayer 2 : %f %% \n\n", 100*rate1, 100*rate2);
 		
+		// If a player gets more than half the board
 		if(rate1 >= 0.5f || rate2 >= 0.5f)
 		{
+			// The game finishes
 			flag = 0;
 		}
 		
