@@ -60,9 +60,7 @@
 	
 	On crée la fonction fill\_rand dans laquelle on va remplir le board avec des couleurs aléatoires, ainsi que les territoires de départ de chacun des joueurs dans les coins.
 	
-	On rapelle que la fonction random génère une suite de nombres (des \texttt{int}) générés à partir d'une graine. Cette suite est unique pour chaque graine. Il est donc impropre de parler de génération de nombres aléatoires, mais plutot de génération \emph{pseudo-aléatoire}.
-	
-	À cet effet, on affecte à la graine la valeur du temps UNIX au moment de l'appel de la fonction (il y a peu de chances pour que la fonction \texttt{fill\_rand} soit appelée plusieurs fois dans la même seconde dans plusieurs processus de 7colors).
+	On rapelle que la fonction random génère une suite de nombres (des \texttt{int}) générés à partir d'une graine. Cette suite est unique pour chaque graine. Il est donc impropre de parler de génération de nombres aléatoires, mais plutot de génération \emph{pseudo-aléatoire}. On affecte à la graine la valeur du temps UNIX au moment du d\'emarrage du programme.
 	
 	On affecte ensuite à chaque élement de la liste \texttt{board} une valeur comprise entre \texttt{'A'} et \texttt{'G'}. Comme \texttt{rand} renvoie un \texttt{int} compris entre 0 et une constante \texttt{RAND\_MAX} supérieure à 32767, on fait un modulo 7 pour avoir seulement des entiers compris entre 0 et 6.
 	
@@ -72,9 +70,6 @@
 /** Fills the borad with random colors */
 void fill_rand(void)
 {
-	// Setting the rand seed to UNIX time
-	srand(time(NULL));
-	
 	int i;
 	for(i = 0 ; i < BOARD_SIZE*BOARD_SIZE ; i++)
 	{
@@ -85,8 +80,7 @@ void fill_rand(void)
 	// Setting the start cells for each player in the corners
 	set_cell(BOARD_SIZE-1, 0, '^');
 	set_cell(0, BOARD_SIZE-1, 'v');
-}
-	\end{lstlisting}
+}\end{lstlisting}
 	
 	
 	\subsection{Mise à jour du board après un coup}
@@ -94,19 +88,24 @@ void fill_rand(void)
 	
 	Selon les règles, chaque joueur choisit à tour de rôle une couleur ; il prend le contrôle de toutes les cases adjacentes à son territoire qui sont de la couleur choisie. Si une case de la couleur choisie est adjacente à une case capturée, elle l'est aussi automatiquement.
 	
-	On va écrire une fonction \texttt{void play(char color, char player)}, qui prend pour paramètres le caractère correspondant à la couleur choisie par le joueur, et la caractère associé au joueur (dans notre cas \texttt{v} ou \texttt{\^}).
+	On va écrire une fonction \texttt{void updateBoard(char color, char player)}, qui prend pour paramètres le caractère correspondant à la couleur choisie par le joueur, et la caractère associé au joueur (dans notre cas \texttt{v} ou \texttt{\^}).
 	
 	La stratégie va être la suivante : on vérifie pour chaque case de la couleur choisie si ses voisines appartiennent au joueur. Si c'est le cas, cette case est capturée. On répète le processus, jusqu'à ce qu'aucun changement ne puisse être fait.
 	
-	Pour ce faire, une utilisera un flag. On boucle tant que le flag est \texttt{true}, puis on lui affecte la valeur \texttt{false} à chaque début d'itération. Si une modification est faite, on réaffecte la valeur \texttt{true}. Si aucune modification n'est faite, l'itération se terminera avec le flag \texttt{false}, et la boucle avec. En pseudo-code :
+	Pour ce faire, une utilisera un flag tel qu'on boucle tant que celui-ci est \texttt{true}. On lui affecte la valeur \texttt{false} à chaque début d'itération ; si une modification est faite, on lui affecte la valeur \texttt{true} ; si aucune modification n'est faite, le flag restera avec la valeur \texttt{false}, et la boucle se terminera.
+	
+	On fera attention \`a ne pas contr\^oler des cases qui sont en-dehors du plateau : en particulier, on ne devra pas contr\^oler la case \`a droite d'une case qui est d\'ej\`a sur le rebord droit du plateau. Ainsi, on v\'erifie d'abord que la case en cours n'est pas sur le rebord droit avant de contr\^oler la case \`a sa droite. M\^eme chose pour les autres rebords.
 	
 	\begin{lstlisting}
-void play(char color, char player)
+void updateBoard(char* boardToUpdate, char color, char player_c)
 {
 	// Defining those not to compute them at each iteration ...
 	int BB = BOARD_SIZE * BOARD_SIZE;
 	int BBMO = BOARD_SIZE * (BOARD_SIZE-1);
 	
+	/* While flag=1 the check continues
+	* if flag=0 at the end of the loop, the check ends
+	*/
 	int flag = 1;
 	while(flag)
 	{
@@ -115,36 +114,28 @@ void play(char color, char player)
 		int i;
 		for(i = 0 ; i < BB ; i++)
 		{
-			if(board[i] == color)
+			/* If the block is not at the top of the board, checking if the upper block belongs to player
+			* '' left '' left ''
+			* '' bottom '' lower ''
+			* '' right '' right ''
+			* the order in the && blocks prevent any segfault
+			*/
+			if(boardToUpdate[i] == color &&
+			( (i >= BOARD_SIZE && boardToUpdate[i-BOARD_SIZE] == player_c) ||
+			((i % BOARD_SIZE) && boardToUpdate[i-1] == player_c) ||
+			((i < BBMO) && boardToUpdate[i+BOARD_SIZE] == player_c) ||
+			((i % BOARD_SIZE != BOARD_SIZE - 1) && boardToUpdate[i+1] == player_c) ) )
 			{
-				board[i] = player;
+				boardToUpdate[i] = player_c;
+				
+				// If a change is made, continue checking
 				flag = 1;
 			}
 		}
+		
+		// If no change is made, flag remains equal to 0 and the loop ends
 	}
-}
-	\end{lstlisting}
-
-	
-	Il subsiste un problème : on risque de contrôler des cases qui n'existent pas si on est sur les bords du plateau. Pour ne pas faire cette erreur, on rajoute des conditions correspondantes. On rapelle que l'ordre importe dans l'opérateur \texttt{\&\&} : si le premier opérande est faux, la valeur du deuxième n'est pas vérifiée par le programme. On peux ainsi se permettre d'écrire \texttt{board} à un indice en-dehors des limites qu'on s'est fixées.
-	
-	\begin{lstlisting}
-/* If the block is not at the top of the board, checking if the upper block belongs to player
-* '' left ''
-* '' bottom ''
-* '' right ''
-* the order in the && blocks prevent any segfault
-*/
-if(board[i] == color &&
-( (i >= BOARD_SIZE && board[i-BOARD_SIZE] == player) ||
-((i % BOARD_SIZE) && board[i-1] == player) ||
-((i < BBMO) && board[i+BOARD_SIZE] == player) ||
-((i % BOARD_SIZE != BOARD_SIZE - 1) && board[i+1] == player) ) )
-{
-	board[i] = player;
-	flag = 1;
-}
-	\end{lstlisting}
+}\end{lstlisting}
 	
 	On peut vérifier que l'algorithme fonctionne simplement en faisant une partie joueur contre joueur et en vérifiant les cas limites. Pour cela, on a besoin de répondre aux questions 4 et 5.
 	
@@ -157,7 +148,7 @@ if(board[i] == color &&
 	
 	\subsection{Jeu infini (et au-delà)}
 	
-	On va en premier lieu récupérer un input : chaque joueur devra écrire le caractère correspondant à la couleur qu'il veut capturer. Pour cela nous allons utiliser la fonction \texttt{scanf}, récupérer le caractère entré dans un \texttt{char}, puis le passer en paramètre dans la fonction \texttt{play} définie en partie \ref{MAJ}.
+	On va en premier lieu récupérer un input : chaque joueur devra écrire le caractère correspondant à la couleur qu'il veut capturer. Pour cela nous allons utiliser la fonction \texttt{scanf}, récupérer le caractère entré dans un \texttt{char}, puis le passer en paramètre dans la fonction \texttt{updateBoard} définie en partie \ref{MAJ}.
 	
 	Pour pouvoir faire jouer les deux joueurs à tour de rôle, on introduit la variable \texttt{int player} qui prend la valeur 0 quand c'est au joueur 1 de jouer et la valeur 1 quand c'est au joueur 2 de jouer. Il suffit d'inverser sa valeur à la fin de chaque itération.
 	
@@ -165,84 +156,49 @@ if(board[i] == color &&
 	
 	\begin{lstlisting}
 void gamehvh()
-{	
-	int player = 0;
+{
+	int player = 1;
 	char input_color;
 	
-	while(true)
+	// Infinite loop ...
+	while(1)
 	{
-		if(!player) // Player 1
+		if(player) // Player 1
 		{
+			// Getting Player1's entry
 			printf("Player 1 : ");
-			scanf("%c", &input_color);
-			play(input_color, 'v');
+			scanf(" %c", &input_color);
+			// Updating the board according to it
+			updateBoard(board, toupper(input_color), 'v');
 		}
 		else // Player 2
 		{
+			// Ditto ...
 			printf("Player 2 : ");
-			scanf("%c", &input_color);
-			play(input_color, '^');
+			scanf(" %c", &input_color);
+			updateBoard(board, toupper(input_color), '^');
 		}
 		
 		printf("\n");
 		print_board();
 		
-		// ...
-		
+		// The other player's turn
 		player = !player;
 	}
 }
 	\end{lstlisting}
 	
-	Après test, on s'est rendus compte que cela ne fonctionne pas : seul le joueur 1 joue (la saisie du joueur 2 n'apparait jamais). En fait, la fonction \texttt{scanf} va être appelée autant de fois qu'il y a de caractères dans le terminal d'entrée, comme si ces caractères étaient disposés dans une pile. Or quand on écrit par exemple \texttt{A} dans le terminal d'entrée, ce que le programme comprend est : \texttt{A} puis \texttt{\\n}. Il suffit pour remédier à cela d'ajouter un espace devant \texttt{\%c}, pour faire comperndre au compilateur qu'on ne veut récupérer que le premier caractère qui n'est pas un espace ou un blanc.
+	On pensera \`a mettre un espace devant \texttt{\%c} : lors des premiers tests (sans l'espace), la saisie du joueur 2 \'etait outrepass\'ee, car le programme extrayait sucessivement le caract\`ere correspondant \`a la couleur choisie pour le joueur 1, puis le caract\`ere \guillemotleft retour \`a la ligne \guillemotright pour le joueur 2.
 	
-	\begin{lstlisting}
-scanf(" %c", &input_color);
-	\end{lstlisting}
-	
-	De plus, pour éviter à avoir à écrire des majuscules à chaque fois, on peut le faire directement dans le programme :
-	
-	\begin{lstlisting}
-play(toupper(input_color), 'v');
-	\end{lstlisting}
+	De plus, on peut ajouter \texttt{toupper} pour \'eviter d'avoir \`a \'ecrire une majuscule \`a chaque fois.
 	
 	
 	\subsection{Toutes les bonnes choses ont une fin}
 	
-	Il s'agit maintenant de gérer la condition de fin de partie ; on va faire de la même manière que pour la mise à jour du terrain : avec un flag ! On joue tant que le flag est à la valeur \texttt{true}, et on lui affecte la valeur \texttt{false} dès qu'un joueur gagne.
-	
-	On en profite pour afficher la proportion de terrain conquis par chaque joueur.
-	
-	Remarque : on aurait pu garder la boucle infinie \texttt{while(true)} et utiliser le mot-clé \texttt{break} pour sortir de la boucle immédiatement \dots
+	Il s'agit maintenant de gérer la condition de fin de partie. D\`es qu'un joueur atteint 50\% du terrain, on d\'eclenche un return revoyant 1 si le joueur 1 gagne, et 2 si le joueur 2 gagne. On utilisera la fonction \texttt{rate} qui renvoie la proportion de terrain occup\'ee par un caract\`ere donn\'e dans un board donn\'e. On en profitera pour l'afficher pour chacun des joueurs.
 	
 	\begin{lstlisting}
-int flag = 1;
-while(flag)
-{
-	// input if's ...
-	
-	printf("\n");
-	print_board();
-	
-	float rate1 = rate('v');
-	float rate2 = rate('^');
-	printf("Player 1 : %f %% \t\tPlayer 2 : %f %% \n\n", 100*rate1, 100*rate2);
-	
-	// If a player gets more than half the board
-	if(rate1 >= 0.5f || rate2 >= 0.5f)
-	{
-		// The game finishes
-		flag = 0;
-	}
-	
-	player = !player;
-}
-	\end{lstlisting}
-	
-	La fonction \texttt{rate} donne la proportion de terrain conquis par une couleur ou un joueur donné. Elle parcourt tout simplement le board en entier, compte les occurences et calcule rapport avec le nombre total de blocs.
-	
-	\begin{lstlisting}
-float rate(char character)
+float rate(char* boardToCheck, char character)
 {
 	int count = 0;
 	int BB = BOARD_SIZE*BOARD_SIZE;
@@ -250,21 +206,268 @@ float rate(char character)
 	int i;
 	for(i = 0; i < BB; i++)
 	{
-		if(board[i] == character)
-			count ++;
+		// Increment the counter at each encounter
+		if(boardToCheck[i] == character)
+		count ++;
 	}
 	
-	return count/BB;
-}
-	\end{lstlisting}
+	return (float)count/BB;
+}\end{lstlisting}
+	
+	Remarque : on aurait pu garder la boucle infinie \texttt{while(true)} et utiliser le mot-clé \texttt{break} pour sortir de la boucle immédiatement \dots
+	
+	\begin{lstlisting}
+int gamehvh()
+{
+	int player = 1;
+	char input_color;
+	
+	/* The game continues until one player wins (return)
+	*/
+	while(1)
+	{
+		if(player) // Player 1
+		{
+			// Getting Player1's entry
+			printf("Player 1 : ");
+			scanf(" %c", &input_color);
+			// Updating the board according to it
+			updateBoard(board, toupper(input_color), 'v');
+		}
+		else // Player 2
+		{
+			// Ditto ...
+			printf("Player 2 : ");
+			scanf(" %c", &input_color);
+			updateBoard(board, toupper(input_color), '^');
+		}
+		
+		printf("\n");
+		print_board();
+		
+		// Getting the fraction of the board belonged by each player
+		float rate1 = rate(board, 'v');
+		float rate2 = rate(board, '^');
+		printf("Player 1 : %f %% \t\tPlayer 2 : %f %% \n\n", 100*rate1, 100*rate2);
+		
+		// If a player gets more than half the board
+		if(rate1 >= 0.5f)
+		{
+			// The game finishes and 1 wins
+			return 1;
+		}
+		else if(rate2 >= 0.5f)
+		{
+			// The game finishes and 2 wins
+			return 2;
+		}
+		
+		// The other player's turn
+		player = !player;
+	}
+}\end{lstlisting}
 	
 	
 	
 	\section{La statégie (??!) de l'aléa}
 	
 	
-	\subsection{L'IA d'exception}
+	Dans un premier temps, codons une fonction g\'en\'erique pour jouer une partie contre un bot, quelqu'il soit. Cela \'evitera de faire des copier-coller, et permetrra d'avoir le code de l'IA encapsul\'e dans une fonction qui renvoie simplement le coup \`a jouer (i.e. la couleur choisie par l'IA).
+	Cette fonction, que l'on apellera \texttt{gamehvb} (pour game human v. bot) prendra comme param\`etre un pointeur vers la fonction de l'IA contre laquelle on souhaite jouer.
 	
+	\begin{lstlisting}
+void gamehvb(char (*AIFunc)(char))
+{	
+	char input_color;
+	
+	/* The game continues until one player wins (return)
+	*/
+	while(1)
+	{
+		// Player's turn
+		printf("Player : ");
+		scanf(" %c", &input_color);
+		updateBoard(board, toupper(input_color), 'v');
+		
+		// Bot's turn, according to the given AI function
+		updateBoard(board, (*AIFunc)('^'), '^');
+		
+		printf("\n");
+		print_board();
+		
+		// Getting the fraction of the board belonged by each player
+		float rate1 = rate(board, 'v');
+		float rate2 = rate(board, '^');
+		printf("Player : %f %% \t\tAI : %f %% \n\n", 100*rate1, 100*rate2);
+		
+		// If a player gets more than half the board
+		if(rate1 >= 0.5f)
+		{
+			// The game finishes and the human wins
+			return 1;
+		}
+		else if(rate2 >= 0.5f)
+		{
+			// The game finishes and the bot wins
+			return 2;
+		}
+	}
+}\end{lstlisting}
+	
+Ainsi, si l'on veut jouer contre l'IA \texttt{whateverAI}, on codera une fonction \texttt{char whateverAI(char botChar)} renvoyant la couleur \`a jouer en fonction de l'\'etat du board. L'argument botChar est le caract\`ere correspondant \`a l'IA (soit \texttt{\^} soit \texttt{v}). On appellera la fonction \texttt{gamehvb} ainsi :
+	
+	\begin{lstlisting}
+gamehvb(&whateverAI);\end{lstlisting}
+	
+	
+	\subsection{L'IA al\'eatoire}
+	
+	Pour cette IA, on choisit n'importe quelle couleur au hasard (Waouh !).
+	
+	\begin{lstlisting}
+char dumbRandBotAI(char botChar)
+{
+	// Returning a random character between 'A' and 'G'
+	return 'A' + rand()%7;
+}\end{lstlisting}
+	
+	L'argument \texttt{botChar} n'est ici pas utilis\'e. Cette IA aura le m\^eme comportement quelque soit l'\'equipe \`a laquelle elle appartient (\texttt{\^} ou \texttt{v}).
+	
+	
+	\subsection{L'IA al\'eatoire am\'elior\'ee}
+	
+	Cette IA devra choisir au hasard parmi les couleurs qui lui permettent d'\'etendre son terrain (m\^eme si son choix n'est pas optimum). Pour cela, on cr\'ee une copie du terrain et on simule un coup pour chaque couleur dans cell-ci. On compare ensuite la proportion de terrain conquise avant et apr\`es la simulation. Si on a gagn\'e du terrain, on stocke la couleur dans un tableau, dans lequel on viendra s\'electionner au hasard l'une d'entre elles.
+	
+	\begin{lstlisting}
+char lessDumbBotAI(char botChar)
+{
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	/* Copy of the board
+	* used to foresee the future plays
+	*/
+	char* futureBoard = malloc(BB * sizeof(char));
+	
+	// Rate before the hypothetic plays
+	float prevRate = rate(board, botChar);
+	
+	float curRate;
+	
+	int availableColorCnt = 0;
+	
+	// List of the colors that make the AI gain ground
+	char* chosenColors = malloc(7 * sizeof(char));
+	
+	// Loop for each color
+	char c;
+	for(c = 'A'; c <= 'G'; c++)
+	{
+		// Reset the copy
+		int i;
+		for(i = 0; i < BB; i++)
+		futureBoard[i] = board[i];
+		
+		// Simulate a play with a color
+		updateBoard(futureBoard, c, botChar);
+		
+		// Checking if the territory has expanded
+		curRate = rate(futureBoard, botChar);
+		if(curRate > prevRate)
+		{
+			// If so, add the color to the possibly chosen colors
+			chosenColors[availableColorCnt] = c;
+			availableColorCnt++;
+		}
+	}
+	
+	free(futureBoard);
+	
+	// Randomly choose one of the selected colors
+	char chosenColor = chosenColors[rand()%availableColorCnt];
+	
+	free(chosenColors);
+	
+	return chosenColor;
+}\end{lstlisting}
+	
+	
+	\section{La loi du plus fort}
+	
+	\subsection{L'IA gloutonne}
+	
+	Cette IA devra choisir la couleur qui maximisele nombre de cases prises lors du tour. Pour cela, on va faire pareil que pour le bot al\'eatoire am\'elior\'e : on va simuler un coup pour chaque couleur. L'IA choisit ensuite la couleur pour laquelle sa part de terrain est maximale.
+	
+	\begin{lstlisting}
+char greedyBotAI(char botChar)
+{	
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	/* Copy of the board
+	* used to foresee the future plays and choose the best
+	*/
+	char* futureBoard = malloc(BB * sizeof(char));
+	
+	char chosenColor;
+	
+	float curRate;
+	float maxRate;
+	
+	// Loop for each color
+	char c;
+	for(c = 'A'; c <= 'G'; c++)
+	{
+		// Reset the copy
+		int i;
+		for(i = 0; i < BB; i++)
+		futureBoard[i] = board[i];
+		
+		// Simulate a play with each color
+		updateBoard(futureBoard, c, botChar);
+		
+		// Finding the color with maximum rate
+		curRate = rate(futureBoard, botChar);
+		if(curRate > maxRate)
+		{
+			maxRate = curRate;
+			chosenColor = c;
+		}
+	}
+	
+	return chosenColor;
+}\end{lstlisting}
+	
+	
+	\subsection{Le tournoi}
+	
+	On fait se combatrre les deux IA l'une contre l'autre. Pour cela, on peut faire une fonction g\'en\'erique, qui organise un tournoi entre deux IA.
+	
+	\begin{lstlisting}
+float contestbvb(char (*AIFunc1)(char), char (*AIFunc2)(char))
+{
+	// Victory count of AI1
+	int victoryCnt1 = 0;
+	
+	int i;
+	for(i = 0; i < 100; i++)
+	{
+		// Reset the board before each round
+		fill_rand();
+		
+		// Fight !
+		int winner = gamebvb(AIFunc1, AIFunc2);
+		
+		if(winner == 1)
+		victoryCnt1++;
+	}
+	
+	return (float)victoryCnt1/100;
+}\end{lstlisting}
+	
+	On ne renvoie que la proportion de victoires de l'IA 1, mais celle de l'IA 2 peut se d\'eduire par un calcul savant.
+	
+	Le combat entre l'IA al\'eatoire et l'IA gloutonne pr\'esente assez peu de suspense : l'IA gloutonne gagne 100\% des matches \`a chaque tournoi.
+	
+	Pour que le match siot \'equitable, il faudrait que le choix de n'importe quelle couleur donne autant de gain, et ce \`a chaque tour pour n'importe quelle couleur choisie. Ainsi, la stat\'egie al\'eatoire et la stat\'egie gloutonne deviendraient \'equivalentes.
 	
 	
 	

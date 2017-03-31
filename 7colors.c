@@ -54,9 +54,6 @@ void set_cell(int x, int y, char color)
 /** Fills the borad with random colors */
 void fill_rand(void)
 {
-	// Setting the rand seed to UNIX time
-	srand(time(NULL));
-	
 	int i;
 	for(i = 0 ; i < BOARD_SIZE*BOARD_SIZE ; i++)
 	{
@@ -71,7 +68,7 @@ void fill_rand(void)
 
 
 /** Play */
-void play(char color, char player_c)
+void updateBoard(char* boardToUpdate, char color, char player_c)
 {
 	// Checking the entry
     if((color != 'A') &&
@@ -91,10 +88,13 @@ void play(char color, char player_c)
     int BBMO = BOARD_SIZE * (BOARD_SIZE-1);
     
     
-    /* NON RECURSIVE
+    /* NON RECURSIVE WAY
      */
     
-    int flag = 1;
+    /* While flag=1 the check continues
+	 * if flag=0 at the end of the loop, the check ends
+	 */
+	int flag = 1;
 	while(flag)
 	{
 		flag = 0;
@@ -103,21 +103,25 @@ void play(char color, char player_c)
 		for(i = 0 ; i < BB ; i++)
 		{
 			/* If the block is not at the top of the board, checking if the upper block belongs to player
-             * '' left ''
-             * '' bottom ''
-             * '' right ''
+             * '' left '' left ''
+             * '' bottom '' lower ''
+             * '' right '' right ''
 			 * the order in the && blocks prevent any segfault
              */
-            if(board[i] == color &&
-                ( (i >= BOARD_SIZE && board[i-BOARD_SIZE] == player_c) ||
-                ((i % BOARD_SIZE) && board[i-1] == player_c) ||
-                ((i < BBMO) && board[i+BOARD_SIZE] == player_c) ||
-                ((i % BOARD_SIZE != BOARD_SIZE - 1) && board[i+1] == player_c) ) )
+            if(boardToUpdate[i] == color &&
+                ( (i >= BOARD_SIZE && boardToUpdate[i-BOARD_SIZE] == player_c) ||
+                ((i % BOARD_SIZE) && boardToUpdate[i-1] == player_c) ||
+                ((i < BBMO) && boardToUpdate[i+BOARD_SIZE] == player_c) ||
+                ((i % BOARD_SIZE != BOARD_SIZE - 1) && boardToUpdate[i+1] == player_c) ) )
             {
-                board[i] = player_c;
+                boardToUpdate[i] = player_c;
+				
+				// If a change is made, continue checking
                 flag = 1;
             }
 		}
+		
+		// If no change is made, flag remains equal to 0 and the loop ends
 	}
 	
 	
@@ -177,7 +181,7 @@ void print_board(void)
 
 
 
-float rate(char character)
+float rate(char* boardToCheck, char character)
 {
 	int count = 0;
 	int BB = BOARD_SIZE*BOARD_SIZE;
@@ -185,34 +189,39 @@ float rate(char character)
 	int i;
 	for(i = 0; i < BB; i++)
 	{
-		if(board[i] == character)
+		// Increment the counter at each encounter
+		if(boardToCheck[i] == character)
 			count ++;
 	}
 	
-	return count/BB;
+	return (float)count/BB;
 }
 
 
 /** Game human vs human */
-void gamehvh()
+int gamehvh()
 {	
-	int player = 0;
+	int player = 1;
     char input_color;
 	
-	int flag = 1;
-	while(flag)
+	/* The game continues until one player wins (return)
+	 */
+	while(1)
 	{
-		if(!player) // Player 1
+		if(player) // Player 1
 		{
+			// Getting Player1's entry
 			printf("Player 1 : ");
 			scanf(" %c", &input_color);
-			play(toupper(input_color), 'v');
+			// Updating the board according to it
+			updateBoard(board, toupper(input_color), 'v');
 		}
 		else // Player 2
 		{
+			// Ditto ...
 			printf("Player 2 : ");
 			scanf(" %c", &input_color);
-			play(toupper(input_color), '^');
+			updateBoard(board, toupper(input_color), '^');
 		}
 		/* On remarquera qu'en mettant un espace devant %c,
 		 * on évite de récupérer le caractère de fin de la saisie précédente,
@@ -223,48 +232,273 @@ void gamehvh()
 		printf("\n");
 		print_board();
 		
-		float rate1 = rate('v');
-		float rate2 = rate('^');
+		// Getting the fraction of the board belonged by each player
+		float rate1 = rate(board, 'v');
+		float rate2 = rate(board, '^');
 		printf("Player 1 : %f %% \t\tPlayer 2 : %f %% \n\n", 100*rate1, 100*rate2);
 		
 		// If a player gets more than half the board
-		if(rate1 >= 0.5f || rate2 >= 0.5f)
+		if(rate1 >= 0.5f)
 		{
-			// The game finishes
-			flag = 0;
+			// The game finishes and 1 wins
+			return 1;
+		}
+		else if(rate2 >= 0.5f)
+		{
+			// The game finishes and 2 wins
+			return 2;
 		}
 		
+		// The other player's turn
 		player = !player;
 	}
 }
 
 
-/** Game human vs dumb bot */
-void gamehvdb()
+/** Game human vs bot */
+int gamehvb(char (*AIFunc)(char))
 {	
 	char input_color;
 	
-	int flag = 1;
-	while(flag)
+	/* The game continues until one player wins (return)
+	 */
+	while(1)
 	{
+		// Player's turn
 		printf("Player : ");
 		scanf(" %c", &input_color);
-		play(toupper(input_color), 'v');
+		updateBoard(board, toupper(input_color), 'v');
 		
-		play('A' + rand()%7, '^');
+		// Bot's turn, according to the given AI function
+		updateBoard(board, (*AIFunc)('^'), '^');
 		
 		printf("\n");
 		print_board();
 		
-		float rate1 = rate('v');
-		float rate2 = rate('^');
+		// Getting the fraction of the board belonged by each player
+		float rate1 = rate(board, 'v');
+		float rate2 = rate(board, '^');
 		printf("Player : %f %% \t\tAI : %f %% \n\n", 100*rate1, 100*rate2);
 		
-		if(rate1 >= 0.5f || rate2 >= 0.5f)
+		// If a player gets more than half the board
+		if(rate1 >= 0.5f)
 		{
-			flag = 0;
+			// The game finishes and 1 wins
+			return 1;
+		}
+		else if(rate2 >= 0.5f)
+		{
+			// The game finishes and 2 wins
+			return 2;
 		}
 	}
+}
+
+
+
+/** Game bot vs bot */
+int gamebvb(char (*AIFunc1)(char), char (*AIFunc2)(char))
+{	
+	float rate1, rate2;
+	
+	/* The game continues until one player wins (return)
+	 */
+	while(1)
+	{
+		// Bot 1 turn
+		updateBoard(board, (*AIFunc1)('v'), 'v');
+		
+		// Bot 2 turn
+		updateBoard(board, (*AIFunc2)('^'), '^');
+		
+		printf("\n");
+		print_board();
+		
+		// Getting the fraction of the board belonged by each player
+		rate1 = rate(board, 'v');
+		rate2 = rate(board, '^');
+		
+		printf("AI1 : %f %% \t\tAI2 : %f %% \n\n", 100*rate1, 100*rate2);
+		
+		// If a player gets more than half the board
+		if(rate1 >= 0.5f)
+		{
+			// The game finishes and 1 wins
+			return 1;
+		}
+		else if(rate2 >= 0.5f)
+		{
+			// The game finishes and 2 wins
+			return 2;
+		}
+	}
+}
+
+
+
+char dumbRandBotAI(char botChar)
+{
+	// Returning a random character between 'A' and 'G'
+	return 'A' + rand()%7;
+}
+
+
+char lessDumbBotAI(char botChar)
+{
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	/* Copy of the board
+	 * used to foresee the future plays
+	 */
+	char* futureBoard = malloc(BB * sizeof(char));
+	
+	// Rate before the hypothetic plays
+	float prevRate = rate(board, botChar);
+	
+	float curRate;
+	
+	int availableColorCnt = 0;
+	
+	// List of the colors that make the AI gain ground
+	char* chosenColors = malloc(7 * sizeof(char));
+	
+	// Loop for each color
+	char c;
+	for(c = 'A'; c <= 'G'; c++)
+	{
+		// Reset the copy
+		int i;
+		for(i = 0; i < BB; i++)
+			futureBoard[i] = board[i];
+		
+		// Simulate a play with a color
+		updateBoard(futureBoard, c, botChar);
+		
+		// Checking if the territory has expanded
+		curRate = rate(futureBoard, botChar);
+		if(curRate > prevRate)
+		{
+			// If so, add the color to the possibly chosen colors
+			chosenColors[availableColorCnt] = c;
+			availableColorCnt++;
+		}
+	}
+	
+	free(futureBoard);
+	
+	// Randomly choose one of the selected colors
+	char chosenColor = chosenColors[rand()%availableColorCnt];
+	
+	free(chosenColors);
+	
+	return chosenColor;
+}
+
+
+char greedyBotAI(char botChar)
+{	
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	/* Copy of the board
+	 * used to foresee the future plays and choose the best
+	 */
+	char* futureBoard = malloc(BB * sizeof(char));
+	
+	char chosenColor;
+	
+	float curRate;
+	float maxRate;
+	
+	// Loop for each color
+	char c;
+	for(c = 'A'; c <= 'G'; c++)
+	{
+		// Reset the copy
+		int i;
+		for(i = 0; i < BB; i++)
+			futureBoard[i] = board[i];
+		
+		// Simulate a play with each color
+		updateBoard(futureBoard, c, botChar);
+		
+		// Finding the color with maximum rate
+		curRate = rate(futureBoard, botChar);
+		if(curRate > maxRate)
+		{
+			maxRate = curRate;
+			chosenColor = c;
+		}
+	}
+	
+	free(futureBoard);
+	
+	return chosenColor;
+}
+
+
+char greedy2BotAI(char botChar)
+{	
+	int BB = BOARD_SIZE*BOARD_SIZE;
+	
+	/* Copy of the board
+	 * used to foresee the future plays and choose the best
+	 */
+	char* futureBoard = malloc(BB * sizeof(char));
+	
+	char chosenColor;
+	
+	float curRate;
+	float maxRate;
+	
+	// Loop for each color
+	char c1, c2;
+	for(c1 = 'A'; c1 <= 'G'; c1++)
+	for(c2 = 'A'; c2 <= 'G'; c2++)
+	{
+		// Reset the copy
+		int i;
+		for(i = 0; i < BB; i++)
+			futureBoard[i] = board[i];
+		
+		// Simulate a play with each pair of colors
+		updateBoard(futureBoard, c1, botChar);
+		updateBoard(futureBoard, c2, botChar);
+		
+		// Finding the color with maximum rate
+		curRate = rate(futureBoard, botChar);
+		if(curRate > maxRate)
+		{
+			maxRate = curRate;
+			chosenColor = c1;
+		}
+	}
+	
+	free(futureBoard);
+	
+	return chosenColor;
+}
+
+
+
+float contestbvb(char (*AIFunc1)(char), char (*AIFunc2)(char))
+{
+	// Victory count of AI1
+	int victoryCnt1 = 0;
+	
+	int i;
+	for(i = 0; i < 100; i++)
+	{
+		// Reset the board before each round
+		fill_rand();
+		
+		// Fight !
+		int winner = gamebvb(AIFunc1, AIFunc2);
+		
+		if(winner == 1)
+			victoryCnt1++;
+	}
+	
+	return (float)victoryCnt1/100;
 }
 
 
@@ -275,13 +509,19 @@ int main(void)
     printf("\n\nWelcome to the 7 wonders of the world of the 7 colors\n"
 	   "*****************************************************\n\n"
 	   "Current board state:\n");
+	
+	// Setting the rand seed to UNIX time
+	srand(time(NULL));
 
     fill_rand();
 	
 	print_board();
     
     //gamehvh();
-	gamehvdb();
+	gamehvb(&lessDumbBotAI);
+	//gamebvb(&greedyBotAI, &dumbRandBotAI);
+	//float a = contestbvb(&greedy2BotAI, &greedyBotAI);
+	//printf("%f\n", a);
 
     return 0; // Everything went well
 }
